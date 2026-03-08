@@ -1,0 +1,13 @@
+[project]
+name = "intrinsicai-updater"
+version = "0.1.0"
+description = "Data updater for IntrinsicAI - fetches financial data from EODHD"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "eodhd>=1.0.32",
+    "python-dotenv>=1.2.1",
+    "google-genai>=1.0.0",
+    "beautifulsoup4>=4.12.0",
+    "requests>=2.31.0",
+]
