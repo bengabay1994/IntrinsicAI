@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "server",
+  "dolt_database": "IntrinsicAI",
+  "project_id": "97917c82-b8f0-494a-86e3-67f05a9103af"
+}
