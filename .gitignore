@@ -208,3 +208,7 @@ __marimo__/
 
 # OpenCode bug nul file
 nul
+
+# Dolt database files (added by bd init)
+.dolt/
+*.db
