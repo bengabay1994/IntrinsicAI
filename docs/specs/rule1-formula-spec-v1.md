@@ -1,6 +1,6 @@
 # IntrinsicAI Canonical Formula Specification v1
 
-Status: Draft for review  
+Status: Approved  
 Issue: IntrinsicAI-9s0  
 Owner: bengabay1994  
 Last updated: 2026-03-08
@@ -10,6 +10,9 @@ Last updated: 2026-03-08
 This document defines the canonical, decision-auditable math and data rules used by IntrinsicAI for Rule #1 analysis. It standardizes formulas, edge-case handling, and assumptions so outputs are deterministic across Updater and MainApp.
 
 This version is intentionally aligned to current code behavior where possible, and flags places that need explicit product decisions.
+
+Related companion spec:
+- `docs/specs/investment-confidence-model-v1.md` defines investment attractiveness scoring and confidence caps.
 
 ## 2. Scope
 
