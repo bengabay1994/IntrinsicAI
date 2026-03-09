@@ -17,7 +17,7 @@ This score is about business quality and investment attractiveness first. Data c
 
 For each analyzed ticker, produce:
 - `investment_score` (0-100): attractiveness score.
-- `investment_grade`: one of `excellent`, `good`, `watchlist`, `avoid`.
+- `investment_grade`: one of `perfect`, `good`, `optional`, `bad`, `very_bad`, `shit`.
 - `score_breakdown`: points by component.
 - `confidence_cap`: optional cap applied due to data/trust limitations.
 - `cap_reasons`: list of cap reasons.
@@ -41,50 +41,65 @@ Where:
 ## 4. Base Quality Score (0-100)
 
 ### 4.1 Component weights
-- `fundamentals_score` (0-70)
+- `fundamentals_score` (0-75)
 - `management_score` (0-20)
-- `moat_score` (0-10)
+- `moat_score` (0-5)
 
 `base_quality_score = fundamentals_score + management_score + moat_score`
 
-### 4.2 Fundamentals score (0-70)
+### 4.2 Fundamentals score (0-75)
 
-#### A) Big 5 growth quality (0-45)
+Importance order is applied directly in weights:
+1. ROIC
+2. Revenue
+3. EPS
+4. Equity
+5. Free Cash Flow and Operating Cash Flow
 
-Metrics:
-- EPS growth
-- Equity growth
-- Revenue growth
-- Free cash flow growth
-- Operating cash flow growth
-
-Per metric scoring (0-9 each):
-- >= 10%: 9
-- >= 8% and < 10%: 7
-- >= 5% and < 8%: 4
-- > 0% and < 5%: 2
-- <= 0%: 0
-- turnaround or missing: 3 (neutral-caution, not full fail)
-
-Window policy:
-- Primary: 10y growth.
-- Adjustment: if 5y materially contradicts 10y trend, subtract up to 2 points from that metric.
-
-#### B) ROIC quality (0-25)
+#### A) ROIC quality (0-30)
 
 Use 10y average ROIC as primary signal:
-- >= 15%: 25
-- >= 12% and < 15%: 22
-- >= 10% and < 12%: 19
-- >= 8% and < 10%: 14
-- >= 5% and < 8%: 8
+- >= 20%: 30
+- >= 15% and < 20%: 27
+- >= 12% and < 15%: 24
+- >= 10% and < 12%: 21
+- >= 8% and < 10%: 16
+- >= 5% and < 8%: 9
 - < 5%: 2
-- missing: 6
+- missing: 8
 
 Adjustments:
 - If negative ROIC years exist in 10y set: -3
 - If extreme outlier flags exist: -2
 - Floor at 0.
+
+#### B) Big 5 growth quality (0-45)
+
+Metrics:
+- Revenue growth
+- EPS growth
+- Equity growth
+- Free cash flow growth
+- Operating cash flow growth
+
+Per metric max points (reflecting priority):
+- Revenue: 14
+- EPS: 12
+- Equity: 9
+- Free cash flow: 5
+- Operating cash flow: 5
+
+Per metric band score:
+- >= 10%: 100% of that metric's max points
+- >= 8% and < 10%: 80% of that metric's max points
+- >= 5% and < 8%: 50% of that metric's max points
+- > 0% and < 5%: 25% of that metric's max points
+- <= 0%: 0% of that metric's max points
+- turnaround or missing: 35% of that metric's max points (neutral-caution)
+
+Window policy:
+- Primary: 10y growth.
+- Adjustment: if 5y materially contradicts 10y trend, subtract up to 2 points from that metric.
 
 ## 5. Management Score (0-20)
 
@@ -101,7 +116,7 @@ Scored from CEO letters and management evidence (manual or AI-assisted with revi
 - Evidence of moat strengthening initiatives: 0-3
 - Owner-operator behavior (long-term incentives, prudence): 0-3
 
-If CEO letters unavailable, default management score is 8 with low-confidence flag (neutral baseline, not a reward).
+If CEO letters unavailable, default management score is 10 with low-confidence flag (neutral baseline, not a reward).
 
 ## 6. Moat Score (0-10)
 
@@ -135,10 +150,12 @@ Each cap must emit structured reason text (example: `insufficient_history_under_
 
 ## 8. Grade Mapping
 
-- `excellent`: score >= 85
-- `good`: score >= 70 and < 85
-- `watchlist`: score >= 55 and < 70
-- `avoid`: score < 55
+- `perfect`: score >= 90 and <= 100
+- `good`: score >= 80 and < 90
+- `optional`: score >= 60 and < 80
+- `bad`: score >= 40 and < 60
+- `very_bad`: score >= 20 and < 40
+- `shit`: score >= 0 and < 20
 
 If a cap is active, include badge: `capped_confidence`.
 
@@ -147,17 +164,17 @@ If a cap is active, include badge: `capped_confidence`.
 ### 9.1 High-quality compounder
 - Base score: 90
 - Cap: 100
-- Final: 90 (`excellent`)
+- Final: 90 (`perfect`)
 
 ### 9.2 Good company but insufficient history
 - Base score: 82
 - Cap due to 6 years only: 69
-- Final: 69 (`watchlist`, with cap reason)
+- Final: 69 (`optional`, with cap reason)
 
 ### 9.3 Near-threshold grower with weak ROIC stability
 - Base score: 63
 - Cap: 100
-- Final: 63 (`watchlist`)
+- Final: 63 (`optional`)
 
 ## 10. Implementation Notes
 
