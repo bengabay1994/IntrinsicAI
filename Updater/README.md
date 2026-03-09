@@ -83,6 +83,16 @@ Updater/
 
 ## Database Schema
 
+The updater uses forward-only schema migrations tracked in `schema_migrations`.
+On startup, it applies unapplied migrations in order and validates required tables/columns.
+
+### schema_migrations
+| Column | Type | Description |
+|--------|------|-------------|
+| version | INTEGER | Migration version (primary key) |
+| name | TEXT | Migration name |
+| applied_at | TEXT | UTC timestamp of application |
+
 ### companies
 | Column | Type | Description |
 |--------|------|-------------|
@@ -116,7 +126,7 @@ The database is created at platform-specific locations:
 | macOS | `~/Library/Application Support/IntrinsicAI/data/stocks.db` |
 | Linux | `~/.local/share/IntrinsicAI/data/stocks.db` |
 
-Raw JSON responses are saved to `<db_dir>/raw/<TICKER>_raw.json` for debugging.
+Raw JSON responses are currently saved to `Updater/data/debug/<TICKER>_raw.json` for debugging.
 
 ## Data Source
 
