@@ -1,6 +1,6 @@
 # IntrinsicAI Investment Confidence Model v1
 
-Status: Draft for review  
+Status: Approved  
 Issue: IntrinsicAI-e15  
 Owner: bengabay1994  
 Last updated: 2026-03-09

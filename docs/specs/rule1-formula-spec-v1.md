@@ -1,6 +1,6 @@
 # IntrinsicAI Canonical Formula Specification v1
 
-Status: Draft for review  
+Status: Approved  
 Issue: IntrinsicAI-9s0  
 Owner: bengabay1994  
 Last updated: 2026-03-08
