@@ -11,6 +11,9 @@ This document defines the canonical, decision-auditable math and data rules used
 
 This version is intentionally aligned to current code behavior where possible, and flags places that need explicit product decisions.
 
+Related companion spec:
+- `docs/specs/investment-confidence-model-v1.md` defines investment attractiveness scoring and confidence caps.
+
 ## 2. Scope
 
 In scope:
