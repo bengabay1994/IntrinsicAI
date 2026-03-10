@@ -1,0 +1,43 @@
+{
+  "General": {
+    "Code": "BAD1",
+    "Name": "Malformed Corp",
+    "Sector": "Industrial"
+  },
+  "Financials": {
+    "Income_Statement": {
+      "yearly": {
+        "2022-12-31": {
+          "totalRevenue": "not-a-number",
+          "netIncome": "NaN-ish",
+          "ebit": "130",
+          "taxProvision": "oops",
+          "incomeBeforeTax": "0"
+        },
+        "bad-year": {
+          "totalRevenue": "100"
+        }
+      }
+    },
+    "Balance_Sheet": {
+      "yearly": {
+        "2022-12-31": {
+          "totalStockholderEquity": "0",
+          "commonStockSharesOutstanding": "0",
+          "longTermDebt": "0",
+          "shortTermDebt": "0",
+          "cash": "0"
+        }
+      }
+    },
+    "Cash_Flow": {
+      "yearly": {
+        "2022-12-31": {
+          "totalCashFromOperatingActivities": "",
+          "capitalExpenditures": "nope",
+          "freeCashFlow": null
+        }
+      }
+    }
+  }
+}

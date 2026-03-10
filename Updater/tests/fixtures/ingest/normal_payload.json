@@ -1,0 +1,40 @@
+{
+  "General": {
+    "Code": "NORM",
+    "Name": "Normal Corp",
+    "Sector": "Technology"
+  },
+  "Financials": {
+    "Income_Statement": {
+      "yearly": {
+        "2024-12-31": {
+          "totalRevenue": "1500",
+          "netIncome": "200",
+          "ebit": "300",
+          "taxProvision": "50",
+          "incomeBeforeTax": "200"
+        }
+      }
+    },
+    "Balance_Sheet": {
+      "yearly": {
+        "2024-12-31": {
+          "totalStockholderEquity": "1000",
+          "commonStockSharesOutstanding": "100",
+          "longTermDebt": "200",
+          "shortTermDebt": "100",
+          "cash": "50"
+        }
+      }
+    },
+    "Cash_Flow": {
+      "yearly": {
+        "2024-12-31": {
+          "totalCashFromOperatingActivities": "250",
+          "capitalExpenditures": "-80",
+          "freeCashFlow": "120"
+        }
+      }
+    }
+  }
+}
