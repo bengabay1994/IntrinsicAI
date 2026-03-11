@@ -2,6 +2,8 @@
 
 import re
 import time
+import random
+import logging
 from dataclasses import dataclass
 
 import requests
@@ -16,6 +18,28 @@ REQUEST_DELAY_SECONDS = 1.0
 
 # Maximum words to extract from the beginning of the 10-K (before Item 1).
 MAX_EXCERPT_WORDS = 5000
+
+MAX_RETRIES = 3
+BASE_BACKOFF_SECONDS = 1.0
+MAX_BACKOFF_SECONDS = 8.0
+JITTER_SECONDS = 0.3
+
+TRANSIENT_HTTP_STATUS_CODES = {408, 425, 429, 500, 502, 503, 504}
+PERMANENT_HTTP_STATUS_CODES = {400, 401, 403, 404, 422}
+
+logger = logging.getLogger(__name__)
+
+
+def _is_transient_http_error(status_code: int) -> bool:
+    if status_code in PERMANENT_HTTP_STATUS_CODES:
+        return False
+    return status_code in TRANSIENT_HTTP_STATUS_CODES or status_code >= 500
+
+
+def _backoff_sleep(attempt: int) -> None:
+    delay = min(MAX_BACKOFF_SECONDS, BASE_BACKOFF_SECONDS * (2 ** (attempt - 1)))
+    jitter = random.uniform(0.0, JITTER_SECONDS)
+    time.sleep(delay + jitter)
 
 
 @dataclass
@@ -50,18 +74,61 @@ def _make_request(
         "Accept": accept,
     }
 
-    try:
-        response = requests.get(url, headers=headers, timeout=30)
-        time.sleep(REQUEST_DELAY_SECONDS)
+    for attempt in range(1, MAX_RETRIES + 1):
+        try:
+            response = requests.get(url, headers=headers, timeout=30)
+            time.sleep(REQUEST_DELAY_SECONDS)
 
-        if response.status_code == 200:
-            return response
-        else:
-            print(f"  [SEC EDGAR] HTTP {response.status_code} for {url}")
-            return None
-    except requests.RequestException as e:
-        print(f"  [SEC EDGAR] Request error: {e}")
-        return None
+            if response.status_code == 200:
+                return response
+
+            is_transient = _is_transient_http_error(response.status_code)
+            if not is_transient:
+                logger.error(
+                    "[SEC EDGAR] Permanent HTTP %s for %s",
+                    response.status_code,
+                    url,
+                )
+                return None
+
+            if attempt == MAX_RETRIES:
+                logger.error(
+                    "[SEC EDGAR] Transient HTTP %s persisted after %s attempts for %s",
+                    response.status_code,
+                    MAX_RETRIES,
+                    url,
+                )
+                return None
+
+            logger.warning(
+                "[SEC EDGAR] Transient HTTP %s on attempt %s/%s for %s. Retrying with backoff.",
+                response.status_code,
+                attempt,
+                MAX_RETRIES,
+                url,
+            )
+            _backoff_sleep(attempt)
+
+        except requests.RequestException as error:
+            if attempt == MAX_RETRIES:
+                logger.error(
+                    "[SEC EDGAR] Request error persisted after %s attempts for %s: %s",
+                    MAX_RETRIES,
+                    url,
+                    error,
+                )
+                return None
+
+            logger.warning(
+                "[SEC EDGAR] Request error on attempt %s/%s for %s: %s. Retrying with backoff.",
+                attempt,
+                MAX_RETRIES,
+                url,
+                error,
+            )
+            _backoff_sleep(attempt)
+
+    return None
 
 
 def resolve_cik(ticker: str) -> str | None:
@@ -93,9 +160,9 @@ def resolve_cik(ticker: str) -> str | None:
                 # Zero-pad to 10 digits
                 return cik.zfill(10)
     except (ValueError, KeyError) as e:
-        print(f"  [SEC EDGAR] Error parsing tickers JSON: {e}")
+        logger.error("[SEC EDGAR] Error parsing tickers JSON: %s", e)
 
-    print(f"  [SEC EDGAR] CIK not found for ticker: {clean_ticker}")
+    logger.warning("[SEC EDGAR] CIK not found for ticker: %s", clean_ticker)
     return None
 
 
@@ -149,7 +216,7 @@ def get_10k_filings(cik: str, count: int = 5) -> list[SecFiling]:
         return filings
 
     except (ValueError, KeyError) as e:
-        print(f"  [SEC EDGAR] Error parsing submissions: {e}")
+        logger.error("[SEC EDGAR] Error parsing submissions: %s", e)
         return []
 
 
@@ -166,7 +233,7 @@ def download_filing_text(filing: SecFiling) -> str | None:
         Extracted text excerpt (up to MAX_EXCERPT_WORDS words) or None on failure.
     """
     url = filing.document_url
-    print(f"  [SEC EDGAR] Downloading: {url}")
+    logger.info("[SEC EDGAR] Downloading: %s", url)
 
     response = _make_request(url, accept="text/html")
     if response is None:
@@ -206,7 +273,7 @@ def download_filing_text(filing: SecFiling) -> str | None:
         return excerpt if excerpt.strip() else None
 
     except Exception as e:
-        print(f"  [SEC EDGAR] Error extracting text: {e}")
+        logger.error("[SEC EDGAR] Error extracting text from %s: %s", url, e)
         return None
 
 
