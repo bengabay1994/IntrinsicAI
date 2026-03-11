@@ -1,0 +1,270 @@
+{
+  "schema_version": "1.0",
+  "dataset_version": "v1-draft",
+  "status": "draft",
+  "last_updated": "2026-03-11",
+  "entries": [
+    {
+      "benchmark_id": "bench-aapl-us-core",
+      "ticker_input": "AAPL",
+      "expected_normalized_ticker": "AAPL.US",
+      "company_name": "Apple Inc.",
+      "categories": [
+        "established_compounder"
+      ],
+      "expected_outputs": {
+        "data_quality_tier": "pending_manual_verification",
+        "analysis_status": "pending_manual_verification",
+        "big5": {
+          "eps_growth_10y": {
+            "expected_state": "pending_manual_verification",
+            "expected_value": null,
+            "tolerance": null,
+            "source_reference_ids": []
+          },
+          "equity_growth_10y": {
+            "expected_state": "pending_manual_verification",
+            "expected_value": null,
+            "tolerance": null,
+            "source_reference_ids": []
+          },
+          "revenue_growth_10y": {
+            "expected_state": "pending_manual_verification",
+            "expected_value": null,
+            "tolerance": null,
+            "source_reference_ids": []
+          },
+          "free_cash_flow_growth_10y": {
+            "expected_state": "pending_manual_verification",
+            "expected_value": null,
+            "tolerance": null,
+            "source_reference_ids": []
+          },
+          "operating_cash_flow_growth_10y": {
+            "expected_state": "pending_manual_verification",
+            "expected_value": null,
+            "tolerance": null,
+            "source_reference_ids": []
+          }
+        },
+        "roic_10y_avg": {
+          "expected_state": "pending_manual_verification",
+          "expected_value": null,
+          "tolerance": null,
+          "source_reference_ids": []
+        },
+        "valuation": {
+          "sticker_price": {
+            "expected_state": "pending_manual_verification",
+            "expected_value": null,
+            "tolerance": null,
+            "source_reference_ids": []
+          },
+          "mos_price": {
+            "expected_state": "pending_manual_verification",
+            "expected_value": null,
+            "tolerance": null,
+            "source_reference_ids": []
+          }
+        }
+      },
+      "validation": {
+        "reference_checks": [
+          {
+            "reference_id": "aapl-gf-001",
+            "provider": "GuruFocus",
+            "locator": "TBD",
+            "fields_to_compare": [
+              "big5",
+              "roic_10y_avg"
+            ],
+            "checked_by": "TBD",
+            "checked_at": "TBD",
+            "result": "pending",
+            "notes": "Placeholder reference row; fill with exact URL and comparison result during manual verification."
+          }
+        ],
+        "manual_calc_artifacts": [],
+        "last_reviewed_at": "TBD",
+        "review_notes": "Starter entry scaffold only. No verified numeric expectations yet."
+      },
+      "notes": "Representative established compounder case."
+    },
+    {
+      "benchmark_id": "bench-tsla-us-volatile",
+      "ticker_input": "TSLA.US",
+      "expected_normalized_ticker": "TSLA.US",
+      "company_name": "Tesla, Inc.",
+      "categories": [
+        "volatile_high_growth",
+        "turnaround_or_inconsistent"
+      ],
+      "expected_outputs": {
+        "data_quality_tier": "pending_manual_verification",
+        "analysis_status": "pending_manual_verification",
+        "big5": {
+          "eps_growth_10y": {
+            "expected_state": "pending_manual_verification",
+            "expected_value": null,
+            "tolerance": null,
+            "source_reference_ids": []
+          },
+          "equity_growth_10y": {
+            "expected_state": "pending_manual_verification",
+            "expected_value": null,
+            "tolerance": null,
+            "source_reference_ids": []
+          },
+          "revenue_growth_10y": {
+            "expected_state": "pending_manual_verification",
+            "expected_value": null,
+            "tolerance": null,
+            "source_reference_ids": []
+          },
+          "free_cash_flow_growth_10y": {
+            "expected_state": "pending_manual_verification",
+            "expected_value": null,
+            "tolerance": null,
+            "source_reference_ids": []
+          },
+          "operating_cash_flow_growth_10y": {
+            "expected_state": "pending_manual_verification",
+            "expected_value": null,
+            "tolerance": null,
+            "source_reference_ids": []
+          }
+        },
+        "roic_10y_avg": {
+          "expected_state": "pending_manual_verification",
+          "expected_value": null,
+          "tolerance": null,
+          "source_reference_ids": []
+        },
+        "valuation": {
+          "sticker_price": {
+            "expected_state": "pending_manual_verification",
+            "expected_value": null,
+            "tolerance": null,
+            "source_reference_ids": []
+          },
+          "mos_price": {
+            "expected_state": "pending_manual_verification",
+            "expected_value": null,
+            "tolerance": null,
+            "source_reference_ids": []
+          }
+        }
+      },
+      "validation": {
+        "reference_checks": [
+          {
+            "reference_id": "tsla-gf-001",
+            "provider": "GuruFocus",
+            "locator": "TBD",
+            "fields_to_compare": [
+              "big5",
+              "roic_10y_avg",
+              "analysis_status"
+            ],
+            "checked_by": "TBD",
+            "checked_at": "TBD",
+            "result": "pending",
+            "notes": "Use this case to validate turnaround and inconsistent-growth handling semantics."
+          }
+        ],
+        "manual_calc_artifacts": [],
+        "last_reviewed_at": "TBD",
+        "review_notes": "Starter entry scaffold only. No verified numeric expectations yet."
+      },
+      "notes": "Representative volatile/turnaround-prone profile for status-rule validation."
+    },
+    {
+      "benchmark_id": "bench-vod-lse-suffix",
+      "ticker_input": "VOD.LSE",
+      "expected_normalized_ticker": "VOD.LSE",
+      "company_name": "Vodafone Group Plc",
+      "categories": [
+        "non_us_exchange_format_case",
+        "mature_or_slow_growth"
+      ],
+      "expected_outputs": {
+        "data_quality_tier": "pending_manual_verification",
+        "analysis_status": "pending_manual_verification",
+        "big5": {
+          "eps_growth_10y": {
+            "expected_state": "pending_manual_verification",
+            "expected_value": null,
+            "tolerance": null,
+            "source_reference_ids": []
+          },
+          "equity_growth_10y": {
+            "expected_state": "pending_manual_verification",
+            "expected_value": null,
+            "tolerance": null,
+            "source_reference_ids": []
+          },
+          "revenue_growth_10y": {
+            "expected_state": "pending_manual_verification",
+            "expected_value": null,
+            "tolerance": null,
+            "source_reference_ids": []
+          },
+          "free_cash_flow_growth_10y": {
+            "expected_state": "pending_manual_verification",
+            "expected_value": null,
+            "tolerance": null,
+            "source_reference_ids": []
+          },
+          "operating_cash_flow_growth_10y": {
+            "expected_state": "pending_manual_verification",
+            "expected_value": null,
+            "tolerance": null,
+            "source_reference_ids": []
+          }
+        },
+        "roic_10y_avg": {
+          "expected_state": "pending_manual_verification",
+          "expected_value": null,
+          "tolerance": null,
+          "source_reference_ids": []
+        },
+        "valuation": {
+          "sticker_price": {
+            "expected_state": "pending_manual_verification",
+            "expected_value": null,
+            "tolerance": null,
+            "source_reference_ids": []
+          },
+          "mos_price": {
+            "expected_state": "pending_manual_verification",
+            "expected_value": null,
+            "tolerance": null,
+            "source_reference_ids": []
+          }
+        }
+      },
+      "validation": {
+        "reference_checks": [
+          {
+            "reference_id": "vod-ref-001",
+            "provider": "TBD",
+            "locator": "TBD",
+            "fields_to_compare": [
+              "expected_normalized_ticker",
+              "big5",
+              "roic_10y_avg"
+            ],
+            "checked_by": "TBD",
+            "checked_at": "TBD",
+            "result": "pending",
+            "notes": "Primary objective is exchange suffix normalization behavior plus baseline metric verification."
+          }
+        ],
+        "manual_calc_artifacts": [],
+        "last_reviewed_at": "TBD",
+        "review_notes": "Starter entry scaffold only. No verified numeric expectations yet."
+      },
+      "notes": "Representative non-US ticker-format benchmark case."
+    }
+  ]
+}
