@@ -11,6 +11,7 @@ class OAuthSecurityUtils {
   static const int minPkceVerifierLength = 43;
   static const int maxPkceVerifierLength = 128;
   static const int oauthStateEntropyBytes = 32;
+  static const int oauthNonceEntropyBytes = 32;
 
   static final RegExp _pkceVerifierAllowedChars = RegExp(
     r'^[A-Za-z0-9\-._~]+$',
@@ -51,6 +52,16 @@ class OAuthSecurityUtils {
     final secureRandom = Random.secure();
     final randomBytes = List<int>.generate(
       oauthStateEntropyBytes,
+      (_) => secureRandom.nextInt(256),
+    );
+    return base64UrlEncode(randomBytes).replaceAll('=', '');
+  }
+
+  /// Generates random OpenID Connect nonce for ID token replay protection.
+  static String generateOAuthNonce() {
+    final secureRandom = Random.secure();
+    final randomBytes = List<int>.generate(
+      oauthNonceEntropyBytes,
       (_) => secureRandom.nextInt(256),
     );
     return base64UrlEncode(randomBytes).replaceAll('=', '');
