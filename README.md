@@ -110,6 +110,8 @@ The SQLite database is stored in platform-specific locations:
 
 - [MainApp README](./MainApp/README.md) - Flutter desktop application details
 - [Updater README](./Updater/README.md) - Python data updater details
+- [ROIC/GuruFocus calibration plan](./docs/specs/roic-gurufocus-calibration-plan-v1.md) - Parity methodology and acceptance thresholds
+- [ROIC/GuruFocus comparison template](./docs/templates/roic-gurufocus-comparison-template.csv) - Reusable capture sheet for parity checks
 
 ## Tech Stack
 
