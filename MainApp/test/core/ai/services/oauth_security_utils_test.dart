@@ -34,4 +34,17 @@ void main() {
       expect(challenge, equals('E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM'));
     });
   });
+
+  group('OAuthSecurityUtils OAuth state/nonce', () {
+    test('generated state and nonce are present and URL-safe', () {
+      final state = OAuthSecurityUtils.generateOAuthState();
+      final nonce = OAuthSecurityUtils.generateOAuthNonce();
+
+      final urlSafe = RegExp(r'^[A-Za-z0-9_-]+$');
+      expect(state, isNotEmpty);
+      expect(nonce, isNotEmpty);
+      expect(urlSafe.hasMatch(state), isTrue);
+      expect(urlSafe.hasMatch(nonce), isTrue);
+    });
+  });
 }

@@ -29,6 +29,7 @@ class OAuthService {
   HttpServer? _callbackServer;
   String? _codeVerifier;
   String? _oauthState;
+  String? _oauthNonce;
 
   OAuthService({TokenStorageService? tokenStorage})
     : _tokenStorage = tokenStorage ?? TokenStorageService();
@@ -43,9 +44,14 @@ class OAuthService {
         _codeVerifier!,
       );
       _oauthState = OAuthSecurityUtils.generateOAuthState();
+      _oauthNonce = OAuthSecurityUtils.generateOAuthNonce();
 
       // Build authorization URL
-      final authUrl = _buildAuthorizationUrl(codeChallenge, _oauthState!);
+      final authUrl = _buildAuthorizationUrl(
+        codeChallenge,
+        _oauthState!,
+        _oauthNonce!,
+      );
 
       // Start local server to receive callback
       final codeCompleter = Completer<String>();
@@ -182,13 +188,18 @@ class OAuthService {
 
   // Private methods
 
-  String _buildAuthorizationUrl(String codeChallenge, String state) {
+  String _buildAuthorizationUrl(
+    String codeChallenge,
+    String state,
+    String nonce,
+  ) {
     final params = {
       'client_id': GeminiOAuthConfig.clientId,
       'redirect_uri': GeminiOAuthConfig.redirectUri,
       'response_type': 'code',
       'scope': GeminiOAuthConfig.scopes.join(' '),
       'state': state,
+      'nonce': nonce,
       'code_challenge': codeChallenge,
       'code_challenge_method': 'S256',
       'access_type': 'offline',
@@ -280,6 +291,7 @@ class OAuthService {
   void _clearTransientAuthState() {
     _codeVerifier = null;
     _oauthState = null;
+    _oauthNonce = null;
   }
 
   Future<OAuthResult> _exchangeCodeForTokens(String code) async {
@@ -313,11 +325,19 @@ class OAuthService {
     final expiresIn = tokenData['expires_in'] as int? ?? 3600;
     final expiresAt = DateTime.now().add(Duration(seconds: expiresIn));
 
-    // Get user email from ID token
+    // Get user email from ID token (and validate nonce)
     String? userEmail;
     final idToken = tokenData['id_token'] as String?;
     if (idToken != null) {
-      userEmail = _extractEmailFromIdToken(idToken);
+      final idTokenClaims = _extractClaimsFromIdToken(idToken);
+      final expectedNonce = _oauthNonce;
+      if (idTokenClaims == null) {
+        return OAuthResult.failure('Failed to parse ID token claims');
+      }
+      if (expectedNonce == null || idTokenClaims['nonce'] != expectedNonce) {
+        return OAuthResult.failure('ID token nonce validation failed');
+      }
+      userEmail = idTokenClaims['email'] as String?;
     }
 
     await _tokenStorage.saveTokens(
@@ -331,17 +351,19 @@ class OAuthService {
     return OAuthResult.success(token!);
   }
 
-  String? _extractEmailFromIdToken(String idToken) {
+  Map<String, dynamic>? _extractClaimsFromIdToken(String idToken) {
     try {
       final parts = idToken.split('.');
-      if (parts.length != 3) return null;
+      if (parts.length != 3) {
+        return null;
+      }
 
       final payload = parts[1];
       final normalized = base64Url.normalize(payload);
       final decoded = utf8.decode(base64Url.decode(normalized));
       final claims = jsonDecode(decoded) as Map<String, dynamic>;
 
-      return claims['email'] as String?;
+      return claims;
     } catch (e) {
       return null;
     }

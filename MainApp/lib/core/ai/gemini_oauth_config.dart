@@ -13,6 +13,7 @@ class GeminiOAuthConfig {
   /// OAuth scopes required for Gemini API access.
   /// Must match exactly what opencode-gemini-auth uses.
   static const List<String> scopes = [
+    'openid',
     'https://www.googleapis.com/auth/cloud-platform',
     'https://www.googleapis.com/auth/userinfo.email',
     'https://www.googleapis.com/auth/userinfo.profile',
