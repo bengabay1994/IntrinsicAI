@@ -1,11 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:math';
-import 'package:crypto/crypto.dart';
+
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 import '../gemini_oauth_config.dart';
+import 'oauth_security_utils.dart';
 import 'token_storage_service.dart';
 
 /// Result of an OAuth operation.
@@ -28,6 +28,7 @@ class OAuthService {
   final TokenStorageService _tokenStorage;
   HttpServer? _callbackServer;
   String? _codeVerifier;
+  String? _oauthState;
 
   OAuthService({TokenStorageService? tokenStorage})
     : _tokenStorage = tokenStorage ?? TokenStorageService();
@@ -37,20 +38,24 @@ class OAuthService {
   Future<OAuthResult> startAuthFlow() async {
     try {
       // Generate PKCE code verifier and challenge
-      _codeVerifier = _generateCodeVerifier();
-      final codeChallenge = _generateCodeChallenge(_codeVerifier!);
+      _codeVerifier = OAuthSecurityUtils.generatePkceCodeVerifier();
+      final codeChallenge = OAuthSecurityUtils.generatePkceCodeChallenge(
+        _codeVerifier!,
+      );
+      _oauthState = OAuthSecurityUtils.generateOAuthState();
 
       // Build authorization URL
-      final authUrl = _buildAuthorizationUrl(codeChallenge);
+      final authUrl = _buildAuthorizationUrl(codeChallenge, _oauthState!);
 
       // Start local server to receive callback
       final codeCompleter = Completer<String>();
-      await _startCallbackServer(codeCompleter);
+      await _startCallbackServer(codeCompleter, _oauthState!);
 
       // Open browser for authorization
       final uri = Uri.parse(authUrl);
       if (!await canLaunchUrl(uri)) {
         await _stopCallbackServer();
+        _clearTransientAuthState();
         return OAuthResult.failure(
           'Could not launch browser for authentication',
         );
@@ -70,9 +75,12 @@ class OAuthService {
       await _stopCallbackServer();
 
       // Exchange code for tokens
-      return await _exchangeCodeForTokens(code);
+      final result = await _exchangeCodeForTokens(code);
+      _clearTransientAuthState();
+      return result;
     } catch (e) {
       await _stopCallbackServer();
+      _clearTransientAuthState();
       return OAuthResult.failure(e.toString());
     }
   }
@@ -90,6 +98,7 @@ class OAuthService {
         headers: {'Content-Type': 'application/x-www-form-urlencoded'},
         body: {
           'client_id': GeminiOAuthConfig.clientId,
+          // Gemini CLI distributed client secret; not relied on for secrecy.
           'client_secret': GeminiOAuthConfig.clientSecret,
           'refresh_token': currentToken.refreshToken!,
           'grant_type': 'refresh_token',
@@ -173,45 +182,13 @@ class OAuthService {
 
   // Private methods
 
-  static const int _pkceVerifierEntropyBytes = 32;
-  static const int _minPkceVerifierLength = 43;
-  static const int _maxPkceVerifierLength = 128;
-  static final RegExp _pkceVerifierAllowedChars = RegExp(
-    r'^[A-Za-z0-9\-._~]+$',
-  );
-
-  String _generateCodeVerifier() {
-    final secureRandom = Random.secure();
-    final randomBytes = List<int>.generate(
-      _pkceVerifierEntropyBytes,
-      (_) => secureRandom.nextInt(256),
-    );
-    final verifier = base64UrlEncode(randomBytes).replaceAll('=', '');
-
-    if (verifier.length < _minPkceVerifierLength ||
-        verifier.length > _maxPkceVerifierLength) {
-      throw StateError('Generated PKCE verifier has invalid length');
-    }
-
-    if (!_pkceVerifierAllowedChars.hasMatch(verifier)) {
-      throw StateError('Generated PKCE verifier has invalid characters');
-    }
-
-    return verifier;
-  }
-
-  String _generateCodeChallenge(String verifier) {
-    final bytes = utf8.encode(verifier);
-    final digest = sha256.convert(bytes);
-    return base64UrlEncode(digest.bytes).replaceAll('=', '');
-  }
-
-  String _buildAuthorizationUrl(String codeChallenge) {
+  String _buildAuthorizationUrl(String codeChallenge, String state) {
     final params = {
       'client_id': GeminiOAuthConfig.clientId,
       'redirect_uri': GeminiOAuthConfig.redirectUri,
       'response_type': 'code',
       'scope': GeminiOAuthConfig.scopes.join(' '),
+      'state': state,
       'code_challenge': codeChallenge,
       'code_challenge_method': 'S256',
       'access_type': 'offline',
@@ -228,7 +205,10 @@ class OAuthService {
     return '${GeminiOAuthConfig.authorizationEndpoint}?$queryString';
   }
 
-  Future<void> _startCallbackServer(Completer<String> codeCompleter) async {
+  Future<void> _startCallbackServer(
+    Completer<String> codeCompleter,
+    String expectedState,
+  ) async {
     _callbackServer = await HttpServer.bind(
       InternetAddress.loopbackIPv4,
       GeminiOAuthConfig.callbackPort,
@@ -238,6 +218,22 @@ class OAuthService {
       if (request.uri.path == '/oauth2callback') {
         final code = request.uri.queryParameters['code'];
         final error = request.uri.queryParameters['error'];
+        final returnedState = request.uri.queryParameters['state'];
+
+        if (returnedState != expectedState) {
+          request.response
+            ..statusCode = HttpStatus.badRequest
+            ..headers.contentType = ContentType.html
+            ..write(_buildErrorHtml('Invalid OAuth state'))
+            ..close();
+
+          if (!codeCompleter.isCompleted) {
+            codeCompleter.completeError(
+              Exception('OAuth state validation failed'),
+            );
+          }
+          return;
+        }
 
         if (error != null) {
           // Send error response to browser
@@ -281,15 +277,26 @@ class OAuthService {
     _callbackServer = null;
   }
 
+  void _clearTransientAuthState() {
+    _codeVerifier = null;
+    _oauthState = null;
+  }
+
   Future<OAuthResult> _exchangeCodeForTokens(String code) async {
+    final codeVerifier = _codeVerifier;
+    if (codeVerifier == null) {
+      return OAuthResult.failure('Missing PKCE verifier for token exchange');
+    }
+
     final response = await http.post(
       Uri.parse(GeminiOAuthConfig.tokenEndpoint),
       headers: {'Content-Type': 'application/x-www-form-urlencoded'},
       body: {
         'client_id': GeminiOAuthConfig.clientId,
+        // Gemini CLI distributed client secret; not relied on for secrecy.
         'client_secret': GeminiOAuthConfig.clientSecret,
         'code': code,
-        'code_verifier': _codeVerifier!,
+        'code_verifier': codeVerifier,
         'grant_type': 'authorization_code',
         'redirect_uri': GeminiOAuthConfig.redirectUri,
       },
@@ -407,6 +414,7 @@ class OAuthService {
   }
 
   String _buildErrorHtml(String error) {
+    final escapedError = const HtmlEscape().convert(error);
     return '''
 <!DOCTYPE html>
 <html>
@@ -442,7 +450,7 @@ class OAuthService {
   <div class="container">
     <div class="error-icon">✗</div>
     <h1>Authentication Failed</h1>
-    <p>Error: $error</p>
+    <p>Error: $escapedError</p>
     <p style="margin-top: 20px;">Please close this window and try again.</p>
   </div>
 </body>
