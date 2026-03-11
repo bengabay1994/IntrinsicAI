@@ -6,6 +6,8 @@ import os
 import time
 from pathlib import Path
 from datetime import datetime
+from enum import Enum
+from typing import Any
 from src.eodhd_client import EODHDDataClient
 from src.db import get_db_connection, initialize_db, get_app_data_dir
 
@@ -13,6 +15,201 @@ logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
+
+
+class ParseErrorCode(str, Enum):
+    MISSING_REQUIRED_SECTION = "missing_required_section"
+    INVALID_SECTION_FORMAT = "invalid_section_format"
+    MALFORMED_DATE = "malformed_date"
+    INVALID_NUMERIC = "invalid_numeric"
+    UNEXPECTED_RECORD_ERROR = "unexpected_record_error"
+
+
+class FundamentalsParseError(Exception):
+    def __init__(
+        self,
+        code: ParseErrorCode,
+        message: str,
+        *,
+        section: str | None = None,
+        field: str | None = None,
+        date: str | None = None,
+        value: Any = None,
+    ) -> None:
+        super().__init__(message)
+        self.code = code
+        self.section = section
+        self.field = field
+        self.date = date
+        self.value = value
+
+
+def _log_parse_failure(ticker: str, error: FundamentalsParseError) -> None:
+    payload = {
+        "ticker": ticker,
+        "code": error.code.value,
+        "message": str(error),
+    }
+    if error.section is not None:
+        payload["section"] = error.section
+    if error.field is not None:
+        payload["field"] = error.field
+    if error.date is not None:
+        payload["date"] = error.date
+    if error.value is not None:
+        payload["value"] = error.value
+
+    logger.warning("fundamentals_parse_failure %s", payload)
+
+
+def _require_mapping(value: Any, *, section: str) -> dict[str, Any]:
+    if isinstance(value, dict):
+        return value
+    raise FundamentalsParseError(
+        ParseErrorCode.INVALID_SECTION_FORMAT,
+        f"Section '{section}' must be an object",
+        section=section,
+        value=type(value).__name__,
+    )
+
+
+def _require_section(data: dict[str, Any], section: str) -> dict[str, Any]:
+    section_value = data.get(section)
+    if section_value is None:
+        raise FundamentalsParseError(
+            ParseErrorCode.MISSING_REQUIRED_SECTION,
+            f"Required section '{section}' is missing",
+            section=section,
+        )
+    return _require_mapping(section_value, section=section)
+
+
+def _extract_yearly_section(
+    financials: dict[str, Any],
+    section_name: str,
+    ticker: str,
+) -> dict[str, Any]:
+    section_value = financials.get(section_name)
+    if section_value is None:
+        _log_parse_failure(
+            ticker,
+            FundamentalsParseError(
+                ParseErrorCode.MISSING_REQUIRED_SECTION,
+                f"Section '{section_name}' is missing",
+                section=section_name,
+            ),
+        )
+        return {}
+
+    section_mapping = _require_mapping(section_value, section=section_name)
+    yearly = section_mapping.get("yearly")
+    if yearly is None:
+        _log_parse_failure(
+            ticker,
+            FundamentalsParseError(
+                ParseErrorCode.MISSING_REQUIRED_SECTION,
+                f"Section '{section_name}.yearly' is missing",
+                section=f"{section_name}.yearly",
+            ),
+        )
+        return {}
+
+    return _require_mapping(yearly, section=f"{section_name}.yearly")
+
+
+def _parse_fiscal_year(date_str: str) -> int:
+    try:
+        parsed = datetime.strptime(date_str, "%Y-%m-%d")
+        return parsed.year
+    except ValueError as error:
+        raise FundamentalsParseError(
+            ParseErrorCode.MALFORMED_DATE,
+            f"Expected date format YYYY-MM-DD, received '{date_str}'",
+            date=date_str,
+        ) from error
+
+
+def _parse_optional_float(
+    value: Any,
+    *,
+    section: str,
+    field: str,
+    date: str,
+) -> float | None:
+    if value is None:
+        return None
+
+    if isinstance(value, bool):
+        raise FundamentalsParseError(
+            ParseErrorCode.INVALID_NUMERIC,
+            f"Field '{field}' must be numeric",
+            section=section,
+            field=field,
+            date=date,
+            value=value,
+        )
+
+    if isinstance(value, (int, float)):
+        return float(value)
+
+    if isinstance(value, str):
+        normalized = value.strip().replace(",", "")
+        if normalized == "":
+            return None
+        try:
+            return float(normalized)
+        except ValueError as error:
+            raise FundamentalsParseError(
+                ParseErrorCode.INVALID_NUMERIC,
+                f"Field '{field}' is not a valid number",
+                section=section,
+                field=field,
+                date=date,
+                value=value,
+            ) from error
+
+    raise FundamentalsParseError(
+        ParseErrorCode.INVALID_NUMERIC,
+        f"Field '{field}' must be numeric",
+        section=section,
+        field=field,
+        date=date,
+        value=value,
+    )
+
+
+def _get_numeric_field(
+    source: dict[str, Any],
+    *,
+    section_name: str,
+    date_str: str,
+    field: str,
+    ticker: str,
+) -> float | None:
+    record = source.get(date_str, {})
+    if not isinstance(record, dict):
+        _log_parse_failure(
+            ticker,
+            FundamentalsParseError(
+                ParseErrorCode.INVALID_SECTION_FORMAT,
+                f"Record for '{section_name}' and '{date_str}' must be an object",
+                section=section_name,
+                date=date_str,
+                value=type(record).__name__,
+            ),
+        )
+        return None
+
+    try:
+        return _parse_optional_float(
+            record.get(field),
+            section=section_name,
+            field=field,
+            date=date_str,
+        )
+    except FundamentalsParseError as error:
+        _log_parse_failure(ticker, error)
+        return None
 
 
 def get_debug_dir() -> Path:
@@ -59,10 +256,25 @@ def parse_and_save_fundamentals(ticker, data, conn):
     )
 
     # 2. Update Financials Table
-    financials = data.get("Financials", {})
-    income_statement = financials.get("Income_Statement", {}).get("yearly", {})
-    balance_sheet = financials.get("Balance_Sheet", {}).get("yearly", {})
-    cash_flow = financials.get("Cash_Flow", {}).get("yearly", {})
+    try:
+        financials = _require_section(data, "Financials")
+    except FundamentalsParseError as error:
+        _log_parse_failure(ticker, error)
+        conn.commit()
+        logger.info(f"Updated data for {ticker}")
+        return
+
+    try:
+        income_statement = _extract_yearly_section(
+            financials, "Income_Statement", ticker
+        )
+        balance_sheet = _extract_yearly_section(financials, "Balance_Sheet", ticker)
+        cash_flow = _extract_yearly_section(financials, "Cash_Flow", ticker)
+    except FundamentalsParseError as error:
+        _log_parse_failure(ticker, error)
+        conn.commit()
+        logger.info(f"Updated data for {ticker}")
+        return
 
     # Collecting all available dates
     all_dates = (
@@ -72,40 +284,107 @@ def parse_and_save_fundamentals(ticker, data, conn):
     for date_str in all_dates:
         # Extract Year from date_str (usually "YYYY-MM-DD")
         try:
-            year = int(date_str.split("-")[0])
-        except (ValueError, IndexError):
+            year = _parse_fiscal_year(date_str)
+        except FundamentalsParseError as error:
+            _log_parse_failure(ticker, error)
             continue
 
-        # Helper to safely get float values (returns None for missing data)
-        def get_val(source, date_k, key):
-            try:
-                val = source.get(date_k, {}).get(key)
-                if val is not None:
-                    return float(val)
-                return None
-            except (ValueError, TypeError):
-                return None
-
         # Income Statement
-        revenue = get_val(income_statement, date_str, "totalRevenue")
-        net_income = get_val(income_statement, date_str, "netIncome")
-        ebit = get_val(income_statement, date_str, "ebit")
-        tax_provision = get_val(income_statement, date_str, "taxProvision")
-        income_before_tax = get_val(income_statement, date_str, "incomeBeforeTax")
+        revenue = _get_numeric_field(
+            income_statement,
+            section_name="Income_Statement",
+            date_str=date_str,
+            field="totalRevenue",
+            ticker=ticker,
+        )
+        net_income = _get_numeric_field(
+            income_statement,
+            section_name="Income_Statement",
+            date_str=date_str,
+            field="netIncome",
+            ticker=ticker,
+        )
+        ebit = _get_numeric_field(
+            income_statement,
+            section_name="Income_Statement",
+            date_str=date_str,
+            field="ebit",
+            ticker=ticker,
+        )
+        tax_provision = _get_numeric_field(
+            income_statement,
+            section_name="Income_Statement",
+            date_str=date_str,
+            field="taxProvision",
+            ticker=ticker,
+        )
+        income_before_tax = _get_numeric_field(
+            income_statement,
+            section_name="Income_Statement",
+            date_str=date_str,
+            field="incomeBeforeTax",
+            ticker=ticker,
+        )
 
         # Balance Sheet
-        total_equity = get_val(balance_sheet, date_str, "totalStockholderEquity")
-        shares_outstanding = get_val(
-            balance_sheet, date_str, "commonStockSharesOutstanding"
+        total_equity = _get_numeric_field(
+            balance_sheet,
+            section_name="Balance_Sheet",
+            date_str=date_str,
+            field="totalStockholderEquity",
+            ticker=ticker,
         )
-        long_term_debt = get_val(balance_sheet, date_str, "longTermDebt")
-        short_term_debt = get_val(balance_sheet, date_str, "shortTermDebt")
-        cash = get_val(balance_sheet, date_str, "cash")
+        shares_outstanding = _get_numeric_field(
+            balance_sheet,
+            section_name="Balance_Sheet",
+            date_str=date_str,
+            field="commonStockSharesOutstanding",
+            ticker=ticker,
+        )
+        long_term_debt = _get_numeric_field(
+            balance_sheet,
+            section_name="Balance_Sheet",
+            date_str=date_str,
+            field="longTermDebt",
+            ticker=ticker,
+        )
+        short_term_debt = _get_numeric_field(
+            balance_sheet,
+            section_name="Balance_Sheet",
+            date_str=date_str,
+            field="shortTermDebt",
+            ticker=ticker,
+        )
+        cash = _get_numeric_field(
+            balance_sheet,
+            section_name="Balance_Sheet",
+            date_str=date_str,
+            field="cash",
+            ticker=ticker,
+        )
 
         # Cash Flow
-        cash_flow_ops = get_val(cash_flow, date_str, "totalCashFromOperatingActivities")
-        capital_exp = get_val(cash_flow, date_str, "capitalExpenditures")
-        free_cash_flow = get_val(cash_flow, date_str, "freeCashFlow")
+        cash_flow_ops = _get_numeric_field(
+            cash_flow,
+            section_name="Cash_Flow",
+            date_str=date_str,
+            field="totalCashFromOperatingActivities",
+            ticker=ticker,
+        )
+        capital_exp = _get_numeric_field(
+            cash_flow,
+            section_name="Cash_Flow",
+            date_str=date_str,
+            field="capitalExpenditures",
+            ticker=ticker,
+        )
+        free_cash_flow = _get_numeric_field(
+            cash_flow,
+            section_name="Cash_Flow",
+            date_str=date_str,
+            field="freeCashFlow",
+            ticker=ticker,
+        )
 
         # Derived Metrics
 
@@ -137,7 +416,16 @@ def parse_and_save_fundamentals(ticker, data, conn):
 
                 if invested_capital != 0:
                     roic = nopat / invested_capital
-        except Exception:
+        except Exception as error:
+            _log_parse_failure(
+                ticker,
+                FundamentalsParseError(
+                    ParseErrorCode.UNEXPECTED_RECORD_ERROR,
+                    "Unexpected error during ROIC calculation",
+                    date=date_str,
+                    value=str(error),
+                ),
+            )
             roic = None
 
         cursor.execute(

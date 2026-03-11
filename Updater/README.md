@@ -137,6 +137,11 @@ Financial data is provided by [EODHD](https://eodhistoricaldata.com/):
 
 ## Troubleshooting
 
+### Structured parse warnings during ingestion
+- Ingestion now logs parse/validation warnings as `fundamentals_parse_failure` with a stable error code.
+- Common codes: `missing_required_section`, `invalid_section_format`, `malformed_date`, `invalid_numeric`.
+- A malformed record/year is skipped without crashing the full ticker update.
+
 ### "API key not found"
 Ensure you have created a `.env` file with your EODHD API key.
 
