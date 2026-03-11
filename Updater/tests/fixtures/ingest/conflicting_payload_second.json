@@ -1,0 +1,40 @@
+{
+  "General": {
+    "Code": "CNFL",
+    "Name": "Conflict Co Revised",
+    "Sector": "Consumer Defensive"
+  },
+  "Financials": {
+    "Income_Statement": {
+      "yearly": {
+        "2021-12-31": {
+          "totalRevenue": "1200",
+          "netIncome": "180",
+          "ebit": "240",
+          "taxProvision": "40",
+          "incomeBeforeTax": "200"
+        }
+      }
+    },
+    "Balance_Sheet": {
+      "yearly": {
+        "2021-12-31": {
+          "totalStockholderEquity": "900",
+          "commonStockSharesOutstanding": "90",
+          "longTermDebt": "150",
+          "shortTermDebt": "50",
+          "cash": "40"
+        }
+      }
+    },
+    "Cash_Flow": {
+      "yearly": {
+        "2021-12-31": {
+          "totalCashFromOperatingActivities": "180",
+          "capitalExpenditures": "-20",
+          "freeCashFlow": "160"
+        }
+      }
+    }
+  }
+}

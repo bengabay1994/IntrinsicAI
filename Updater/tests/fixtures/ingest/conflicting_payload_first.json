@@ -1,0 +1,40 @@
+{
+  "General": {
+    "Code": "CNFL",
+    "Name": "Conflict Co Original",
+    "Sector": "Consumer"
+  },
+  "Financials": {
+    "Income_Statement": {
+      "yearly": {
+        "2021-12-31": {
+          "totalRevenue": "1000",
+          "netIncome": "100",
+          "ebit": "150",
+          "taxProvision": "25",
+          "incomeBeforeTax": "125"
+        }
+      }
+    },
+    "Balance_Sheet": {
+      "yearly": {
+        "2021-12-31": {
+          "totalStockholderEquity": "800",
+          "commonStockSharesOutstanding": "80",
+          "longTermDebt": "120",
+          "shortTermDebt": "30",
+          "cash": "20"
+        }
+      }
+    },
+    "Cash_Flow": {
+      "yearly": {
+        "2021-12-31": {
+          "totalCashFromOperatingActivities": "140",
+          "capitalExpenditures": "-30",
+          "freeCashFlow": "110"
+        }
+      }
+    }
+  }
+}
